@@ -8,7 +8,7 @@ import (
 )
 
 type CollectionOptions struct {
-	Delimiter byte
+	Delimiter string
 }
 
 type Collection struct {
@@ -23,7 +23,7 @@ type Collection struct {
 func newCollection(kv *KV, name string, opts *CollectionOptions) (col *Collection, err error) {
 	if opts == nil {
 		opts = &CollectionOptions{
-			Delimiter: '/',
+			Delimiter: "/",
 		}
 	}
 	col = &Collection{
@@ -36,14 +36,26 @@ func newCollection(kv *KV, name string, opts *CollectionOptions) (col *Collectio
 }
 
 func (c *Collection) init() (err error) {
+	levelField := ""
+	if c.opts.Delimiter != "" {
+		levelField = "level integer,"
+	}
 	createSql := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
 		id integer primary key,
 		key text not null unique,
+		%s
 		value blob not null
-	)`, c.name)
+	)`, c.name, levelField)
 
 	if err = c.kv.conn.Exec(createSql); err != nil {
 		return
+	}
+
+	if c.opts.Delimiter != "" {
+		createIndexSql := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s_level_idx ON %s (level)`, c.name, c.name)
+		if err = c.kv.conn.Exec(createIndexSql); err != nil {
+			return
+		}
 	}
 
 	c.getStmt, err = c.kv.conn.Prepare(fmt.Sprintf("SELECT value FROM %s WHERE key = ?", c.name))
@@ -51,9 +63,16 @@ func (c *Collection) init() (err error) {
 		return
 	}
 
-	c.putStmt, err = c.kv.conn.Prepare(fmt.Sprintf(`INSERT INTO %s (key, value) 
-	VALUES (?, ?)
-	ON CONFLICT(key) DO UPDATE SET value = excluded.value`, c.name))
+	if c.opts.Delimiter != "" {
+		c.putStmt, err = c.kv.conn.Prepare(fmt.Sprintf(`INSERT INTO %s (key, level, value) 
+		VALUES (?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, c.name))
+	} else {
+		c.putStmt, err = c.kv.conn.Prepare(fmt.Sprintf(`INSERT INTO %s (key, value) 
+		VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, c.name))
+	}
+
 	if err != nil {
 		return
 	}

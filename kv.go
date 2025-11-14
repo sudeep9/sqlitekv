@@ -43,6 +43,10 @@ func Open(dbpath string, opts *Options) (kv *KV, err error) {
 	return
 }
 
+func (kv *KV) WithTx(fn func() error) (err error) {
+	return kv.conn.WithTx(fn)
+}
+
 func (kv *KV) init() (err error) {
 	if kv.opts.JournalMode != "" {
 		if err = kv.conn.Exec(fmt.Sprintf("pragma journal_mode=%s", kv.opts.JournalMode)); err != nil {

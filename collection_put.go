@@ -1,6 +1,9 @@
 package sqlitekv
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 func (c *Collection) Put(ctx context.Context, key string, value []byte) (rowid int64, err error) {
 	c.kv.mu.Lock()
@@ -10,7 +13,13 @@ func (c *Collection) Put(ctx context.Context, key string, value []byte) (rowid i
 }
 
 func (c *Collection) put(ctx context.Context, key string, value []byte) (rowid int64, err error) {
-	err = c.putStmt.Exec(key, value)
+	if c.opts.Delimiter != "" {
+		level := strings.Count(key, c.opts.Delimiter)
+		err = c.putStmt.Exec(key, level, value)
+	} else {
+		err = c.putStmt.Exec(key, value)
+	}
+
 	if err != nil {
 		return
 	}

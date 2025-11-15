@@ -9,18 +9,18 @@ type Metadata struct {
 }
 
 type Org struct {
-	Meta Metadata `json:"_metadata"`
+	Meta Metadata `json:"_m"`
 	Name string   `json:"name"`
 }
 
 type Patient struct {
-	Meta  Metadata `json:"_metadata"`
+	Meta  Metadata `json:"_m"`
 	Name  string   `json:"name"`
 	Phone string   `json:"phone"`
 	Age   int      `json:"age"`
 }
 
 type Rx struct {
-	Meta       Metadata `json:"_metadata"`
+	Meta       Metadata `json:"_m"`
 	Medication string   `json:"meds"`
 }

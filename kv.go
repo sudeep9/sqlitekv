@@ -3,12 +3,14 @@ package sqlitekv
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/eatonphil/gosqlite"
 )
 
 type Options struct {
-	JournalMode string
+	JournalMode       string
+	BusyRetryInterval time.Duration
 }
 
 type KV struct {
@@ -22,7 +24,10 @@ type KV struct {
 
 func Open(dbpath string, opts *Options) (kv *KV, err error) {
 	if opts == nil {
-		opts = &Options{}
+		opts = &Options{
+			JournalMode:       "WAL",
+			BusyRetryInterval: 100 * time.Millisecond,
+		}
 	}
 
 	conn, err := gosqlite.Open(dbpath)
@@ -38,6 +43,11 @@ func Open(dbpath string, opts *Options) (kv *KV, err error) {
 		kv = nil
 	}
 
+	kv.conn.BusyFunc(func(count int) (retry bool) {
+		time.Sleep(kv.opts.BusyRetryInterval)
+		return true
+	})
+
 	return
 }
 
@@ -48,6 +58,10 @@ func (kv *KV) WithTx(fn func() error) (err error) {
 func (kv *KV) init() (err error) {
 	if kv.opts.JournalMode != "" {
 		if err = kv.conn.Exec(fmt.Sprintf("pragma journal_mode=%s", kv.opts.JournalMode)); err != nil {
+			return
+		}
+
+		if err = kv.conn.Exec("pragma synchronous=NORMAL"); err != nil {
 			return
 		}
 	}
@@ -64,11 +78,25 @@ func (kv *KV) Collection(name string, opts *CollectionOptions) (col *Collection,
 	return
 }
 
-func (kv *KV) JsonCollection(name string, opts *JsonCollectionOptions) (col *JsonCollection, err error) {
-	col, err = NewJsonCollection(kv, name, opts)
+func (kv *KV) JsonCollection(name string, opts *CollectionOptions) (col *Collection, err error) {
+	col, err = newCollection(kv, name, opts)
 	return
 }
 
 func (kv *KV) Close() (err error) {
 	return kv.conn.Close()
+}
+
+func (k *KV) withReadLock(fn func() error) (err error) {
+	k.rw.RLock()
+	err = fn()
+	k.rw.RUnlock()
+	return
+}
+
+func (k *KV) withWriteLock(fn func() error) (err error) {
+	k.rw.Lock()
+	err = fn()
+	k.rw.Unlock()
+	return
 }

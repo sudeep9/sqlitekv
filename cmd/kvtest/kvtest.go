@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"time"
 
@@ -22,45 +21,38 @@ func main() {
 	}
 	defer kv.Close()
 
+	now := time.Now()
 	st, err := newState(kv)
 	if err != nil {
 		logger.Error("failed to create state", slog.String("error", err.Error()))
 		return
 	}
 
-	now := time.Now()
+	logger.Info("inited state", slog.Any("elapsed", time.Since(now)))
+
+	now = time.Now()
 	ctx := context.Background()
-	err = createOrgs(ctx, st, 100)
-	if err != nil {
-		logger.Error("failed to create orgs", slog.String("error", err.Error()))
-		return
-	}
-
-	logger.Info("data generation completed", slog.Duration("duration", time.Since(now)))
-
-	listOpts := sqlitekv.ListOptions{
-		OrderBy: []string{
-			"name desc",
-		},
-	}
-
-	err = st.patientCol.List(ctx, "/o/62/p/", func(rid int64, key string, buf []byte) error {
-		var patient Patient
-		err := json.Unmarshal(buf, &patient)
+	//err = createOrgs(ctx, st, 100)
+	//if err != nil {
+	//	logger.Error("failed to create orgs", slog.String("error", err.Error()))
+	//	return
+	//}
+	maxCas := int64(0)
+	st.patientCol.Select(ctx, func(fn sqlitekv.GetColumnValueFn) error {
+		v, _, err := fn(0)
 		if err != nil {
 			return err
 		}
-		logger.Info("patient",
-			slog.Int64("rid", rid),
-			slog.String("key", key),
-			slog.Int64("cas", patient.Meta.Cas),
-			slog.String("name", patient.Name),
-			slog.Int("age", patient.Age))
+		cas := v.(int64)
+		if cas > maxCas {
+			maxCas = cas
+		}
 		return nil
-	}, listOpts)
+	}, sqlitekv.SelectOptions{
+		Columns: []string{"cas"},
+	})
 
-	if err != nil {
-		logger.Error("failed to list patients", slog.String("error", err.Error()))
-		return
-	}
+	logger.Info("max cas", slog.Int64("maxCas", maxCas))
+
+	logger.Info("kvtest completed", slog.Duration("duration", time.Since(now)))
 }

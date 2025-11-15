@@ -15,7 +15,7 @@ type Counter struct {
 	state counterState
 
 	key  string
-	col  *Collection
+	col  *JsonCollection
 	opts CounterOptions
 
 	mu sync.Mutex
@@ -26,7 +26,7 @@ type CounterOptions struct {
 	ReserveCount int64
 }
 
-func NewCounter(col *Collection, key string, opts CounterOptions) (c *Counter, err error) {
+func NewCounter(col *JsonCollection, key string, opts CounterOptions) (c *Counter, err error) {
 	if opts.ReserveCount <= 0 {
 		opts.ReserveCount = 100
 	}
@@ -78,7 +78,7 @@ func (c *Counter) put(ctx context.Context) (err error) {
 func (c *Counter) init() (err error) {
 	ctx := context.Background()
 	var state counterState
-	ok, err := c.col.Get(ctx, c.key, func(buf []byte) error {
+	ok, err := c.col.Get(ctx, c.key, func(rid int64, buf []byte) error {
 		err = json.Unmarshal(buf, &state)
 		return err
 	})

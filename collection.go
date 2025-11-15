@@ -86,9 +86,9 @@ func (c *Collection) init() (err error) {
 }
 
 func (c *Collection) Delete(ctx context.Context, key string) (err error) {
-	c.kv.mu.Lock()
+	c.kv.rw.Lock()
 	err = c.delete(ctx, key)
-	c.kv.mu.Unlock()
+	c.kv.rw.Unlock()
 	return
 }
 

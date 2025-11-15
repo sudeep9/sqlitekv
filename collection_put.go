@@ -6,9 +6,9 @@ import (
 )
 
 func (c *Collection) Put(ctx context.Context, key string, value []byte) (rowid int64, err error) {
-	c.kv.mu.Lock()
+	c.kv.rw.Lock()
 	rowid, err = c.put(ctx, key, value)
-	c.kv.mu.Unlock()
+	c.kv.rw.Unlock()
 	return
 }
 

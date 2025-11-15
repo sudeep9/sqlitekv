@@ -2,27 +2,27 @@ package sqlitekv
 
 import "context"
 
-type ValueFn func([]byte) error
+type GetFn func(int64, []byte) error
 
-func (c *Collection) Get(ctx context.Context, key string, fn ValueFn) (ok bool, err error) {
-	c.kv.mu.Lock()
+func (c *Collection) Get(ctx context.Context, key string, fn GetFn) (ok bool, err error) {
+	c.kv.rw.Lock()
 	ok, err = c.get(ctx, key, fn)
 
 	if err = c.getStmt.ClearBindings(); err != nil {
-		c.kv.mu.Unlock()
+		c.kv.rw.Unlock()
 		return
 	}
 
 	if err = c.getStmt.Reset(); err != nil {
-		c.kv.mu.Unlock()
+		c.kv.rw.Unlock()
 		return
 	}
 
-	c.kv.mu.Unlock()
+	c.kv.rw.Unlock()
 	return
 }
 
-func (c *Collection) get(ctx context.Context, key string, fn ValueFn) (ok bool, err error) {
+func (c *Collection) get(ctx context.Context, key string, fn GetFn) (ok bool, err error) {
 	err = c.getStmt.Reset()
 	if err != nil {
 		return
@@ -50,7 +50,7 @@ func (c *Collection) get(ctx context.Context, key string, fn ValueFn) (ok bool, 
 		return
 	}
 
-	err = fn(rawBytes)
+	err = fn(0, rawBytes)
 	if err != nil {
 		return
 	}

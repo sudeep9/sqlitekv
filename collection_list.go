@@ -10,13 +10,13 @@ type ListFn func(rid int64, key string, value []byte) error
 
 type ListOptions struct {
 	Descending bool
-	MaxKeyLen  int
+	OrderBy    []string
 }
 
 func (c *Collection) List(ctx context.Context, keyPrefix string, fn ListFn) (err error) {
-	c.kv.mu.Lock()
+	c.kv.rw.Lock()
 	err = c.list(ctx, keyPrefix, fn)
-	c.kv.mu.Unlock()
+	c.kv.rw.Unlock()
 	return
 }
 

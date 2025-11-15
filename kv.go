@@ -17,14 +17,12 @@ type KV struct {
 
 	defaultCol *Collection
 
-	mu sync.Mutex
+	rw sync.RWMutex
 }
 
 func Open(dbpath string, opts *Options) (kv *KV, err error) {
 	if opts == nil {
-		opts = &Options{
-			JournalMode: "",
-		}
+		opts = &Options{}
 	}
 
 	conn, err := gosqlite.Open(dbpath)
@@ -54,10 +52,6 @@ func (kv *KV) init() (err error) {
 		}
 	}
 
-	if kv.defaultCol, err = kv.Collection("_default", nil); err != nil {
-		return
-	}
-
 	return
 }
 
@@ -67,6 +61,11 @@ func (kv *KV) DefaultCollection() *Collection {
 
 func (kv *KV) Collection(name string, opts *CollectionOptions) (col *Collection, err error) {
 	col, err = newCollection(kv, name, opts)
+	return
+}
+
+func (kv *KV) JsonCollection(name string, opts *JsonCollectionOptions) (col *JsonCollection, err error) {
+	col, err = NewJsonCollection(kv, name, opts)
 	return
 }
 

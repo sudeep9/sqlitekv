@@ -33,9 +33,15 @@ func createOrgs(ctx context.Context, st *State, orgCount int) (err error) {
 			return err
 		}
 
-		err = createPatients(ctx, st, org.Meta.Key)
+		err = st.kv.WithTx(func() error {
+			err = createPatients(ctx, st, org.Meta.Key)
+			if err != nil {
+				fmt.Printf("failed to create patients for org %s: %v\n", org.Meta.Key, err)
+			}
+			return nil
+		})
 		if err != nil {
-			fmt.Printf("failed to create patients for org %s: %v\n", org.Meta.Key, err)
+			return err
 		}
 
 		fmt.Printf("Created org: %s\n", org.Meta.Key)

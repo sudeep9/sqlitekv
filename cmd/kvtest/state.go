@@ -23,12 +23,12 @@ func newState(kv *sqlitekv.KV) (s *State, err error) {
 		kv:  kv,
 		hlc: hlc.NewHLC(0),
 	}
-	s.genCol, err = kv.JsonCollection("gen", nil)
+	s.genCol, err = kv.Collection("gen", nil)
 	if err != nil {
 		return
 	}
 
-	s.orgCol, err = kv.JsonCollection("org", &sqlitekv.CollectionOptions{
+	s.orgCol, err = kv.Collection("org", &sqlitekv.CollectionOptions{
 		Columns: []sqlitekv.GeneratedColumn{
 			{Name: "name", Type: "text", Def: "json_extract(val, '$.name')", Storage: "Stored"},
 		},
@@ -36,17 +36,18 @@ func newState(kv *sqlitekv.KV) (s *State, err error) {
 	if err != nil {
 		return
 	}
-	s.patientCol, err = kv.JsonCollection("patient", &sqlitekv.CollectionOptions{
+	s.patientCol, err = kv.Collection("patient", &sqlitekv.CollectionOptions{
 		Columns: []sqlitekv.GeneratedColumn{
 			{Name: "name", Type: "text", Def: "json_extract(val, '$.name')", Storage: "Stored"},
 			{Name: "phone", Type: "text", Def: "json_extract(val, '$.phone')", Storage: "Stored"},
 			{Name: "cas", Type: "integer", Def: "json_extract(val, '$._m.cas')", Storage: "Stored"},
 		},
+		FTS: true,
 	})
 	if err != nil {
 		return
 	}
-	s.rxCol, err = kv.JsonCollection("rx", nil)
+	s.rxCol, err = kv.Collection("rx", nil)
 	if err != nil {
 		return
 	}

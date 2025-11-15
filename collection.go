@@ -19,6 +19,7 @@ type CollectionOptions struct {
 	Delimiter string
 	Columns   []GeneratedColumn
 	Indexes   []string
+	FTS       bool
 }
 
 type Collection struct {
@@ -123,6 +124,13 @@ func (c *Collection) init() (err error) {
 	c.delStmt, err = c.kv.conn.Prepare(fmt.Sprintf("DELETE FROM %s WHERE key = ?", c.name))
 	if err != nil {
 		return
+	}
+
+	if c.opts.FTS {
+		err = c.createFTSTable()
+		if err != nil {
+			return
+		}
 	}
 
 	return

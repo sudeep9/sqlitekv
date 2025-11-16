@@ -8,49 +8,55 @@ import (
 	"github.com/eatonphil/gosqlite"
 )
 
-type GeneratedColumn struct {
-	Name    string
-	Type    string
-	Def     string
-	Storage string
+type CollectionType interface {
+	GetId() (id int64)
+	SetId(id int64)
+	GetVal() (val []byte, err error)
+	SetVal(val []byte) error
+	Column(i int, name string) (ok bool, val any, err error)
+	SetColumn(i int, name string, ok bool, val any) error
+}
+
+type DerivedColumn struct {
+	Name     string
+	Type     string
+	Nullable bool
+	Unique   bool
 }
 
 type CollectionOptions struct {
-	Delimiter string
-	Columns   []GeneratedColumn
-	Indexes   []string
-	FTS       bool
+	Columns []DerivedColumn
+	Indexes []string
+	AutoId  bool
+	Json    bool
+	FTS     bool
 }
 
 type Collection struct {
-	name        string
-	kv          *KV
-	mu          sync.Mutex
-	opts        *CollectionOptions
-	getStmt     *gosqlite.Stmt
-	getByIdStmt *gosqlite.Stmt
-	insStmt     *gosqlite.Stmt
-	updByIdStmt *gosqlite.Stmt
-	putStmt     *gosqlite.Stmt
-	delStmt     *gosqlite.Stmt
+	name    string
+	kv      *KV
+	mu      sync.Mutex
+	opts    *CollectionOptions
+	getStmt *gosqlite.Stmt
+	insStmt *gosqlite.Stmt
+	putStmt *gosqlite.Stmt
+	delStmt *gosqlite.Stmt
+
+	uniqueStmt map[string]*gosqlite.Stmt
 }
 
-func newCollection(kv *KV, name string, opts *CollectionOptions) (col *Collection, err error) {
+func NewCollection(kv *KV, name string, opts *CollectionOptions) (col *Collection, err error) {
 	if opts == nil {
 		opts = &CollectionOptions{
-			Delimiter: "/",
-			Columns:   nil,
+			Columns: nil,
 		}
 	}
 
-	if opts.Delimiter == "" {
-		opts.Delimiter = "/"
-	}
-
 	col = &Collection{
-		name: name,
-		kv:   kv,
-		opts: opts,
+		name:       name,
+		kv:         kv,
+		opts:       opts,
+		uniqueStmt: make(map[string]*gosqlite.Stmt),
 	}
 
 	err = col.init()
@@ -62,77 +68,196 @@ func newCollection(kv *KV, name string, opts *CollectionOptions) (col *Collectio
 }
 
 func (c *Collection) init() (err error) {
-	genCols := strings.Builder{}
+	fmt.Printf("creating table\n")
+	err = c.createTable()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("creating indexes\n")
+	err = c.createIndexes()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("preparing get statement\n")
+	err = c.prepareGetStmt()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("preparing unique statements\n")
+	err = c.prepareUniqueStmts()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("preparing insert statement\n")
+	err = c.prepareInsertStmt()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("preparing put statement\n")
+	err = c.preparePutStmt()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("preparing delete statement\n")
+	err = c.prepareDeleteStmt()
+	if err != nil {
+		return
+	}
+
+	//if c.opts.FTS {
+	//	err = c.createFTSTable()
+	//	if err != nil {
+	//		return
+	//	}
+	//}
+
+	return
+}
+
+func (c *Collection) createTable() (err error) {
+	sql := strings.Builder{}
+
+	sql.WriteString("create table if not exists ")
+	sql.WriteString(c.name)
+	sql.WriteString(" (\n")
+
+	sql.WriteString("id integer primary key,\n")
+	sql.WriteString("val text not null\n")
+
 	for _, col := range c.opts.Columns {
-		genCols.WriteString(fmt.Sprintf(", %s %s as (%s) %s\n", col.Name, col.Type, col.Def, col.Storage))
-	}
-	createSql := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-		id integer primary key,
-		key text not null unique,
-		level integer,
-		val text not null
-		%s
-	)`, c.name, genCols.String())
+		prop := ""
+		if !col.Nullable {
+			prop += " not null"
+		}
+		if col.Unique {
+			prop += " unique"
+		}
 
-	if err = c.kv.conn.Exec(createSql); err != nil {
+		sql.WriteString(fmt.Sprintf(",%s %s %s\n", col.Name, col.Type, prop))
+	}
+
+	sql.WriteString(")")
+
+	fmt.Printf("create table: %s\n", sql.String())
+	if err = c.kv.conn.Exec(sql.String()); err != nil {
 		return
 	}
 
-	if err = c.kv.conn.Exec(fmt.Sprintf(`create index if not exists %s_level_idx on %s(level)`, c.name, c.name)); err != nil {
-		return
-	}
+	return
+}
 
-	for _, idx := range c.opts.Indexes {
-		createIndexSql := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s_%s_idx ON %s (%s)`, c.name, idx, c.name, idx)
+func (c *Collection) createIndexes() (err error) {
+	for _, colName := range c.opts.Indexes {
+		createIndexSql := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %[1]s_%[2]s_idx ON %[1]s (%[2]s)`, c.name, colName)
+		fmt.Printf("index: %s", createIndexSql)
 		if err = c.kv.conn.Exec(createIndexSql); err != nil {
 			return
 		}
 	}
+	return
+}
 
-	genColList := strings.Builder{}
+func (c *Collection) makeGetStmt(colName string) (stmt *gosqlite.Stmt, err error) {
+	sql := strings.Builder{}
+	sql.WriteString("SELECT id, val")
 	for _, col := range c.opts.Columns {
-		genColList.WriteString(", ")
-		genColList.WriteString(col.Name)
+		sql.WriteString(", ")
+		sql.WriteString(col.Name)
 	}
+	sql.WriteString(" FROM ")
+	sql.WriteString(c.name)
+	sql.WriteString(" WHERE ")
+	sql.WriteString(colName)
+	sql.WriteString(" = ?")
 
-	c.getStmt, err = c.kv.conn.Prepare(fmt.Sprintf("SELECT id, json(val) %s FROM %s WHERE key = ?", genColList.String(), c.name))
+	stmt, err = c.kv.conn.Prepare(sql.String())
 	if err != nil {
 		return
 	}
+	return
+}
 
-	c.getByIdStmt, err = c.kv.conn.Prepare(fmt.Sprintf("SELECT key, json(val) FROM %s WHERE id = ?", c.name))
-	if err != nil {
-		return
-	}
+func (c *Collection) prepareGetStmt() (err error) {
+	c.getStmt, err = c.makeGetStmt("id")
+	return
+}
 
-	c.insStmt, err = c.kv.conn.Prepare(fmt.Sprintf(`INSERT INTO %s (id, key, level, val) VALUES (?, ?, ?, jsonb(?))`, c.name))
-	if err != nil {
-		return
-	}
-
-	c.putStmt, err = c.kv.conn.Prepare(fmt.Sprintf(`INSERT INTO %s (key, level, val) VALUES (?, ?, jsonb(?))
-	ON CONFLICT(key) DO UPDATE SET val = jsonb(excluded.val)`, c.name))
-	if err != nil {
-		return
-	}
-
-	c.updByIdStmt, err = c.kv.conn.Prepare(fmt.Sprintf(`UPDATE %s SET val = jsonb(?) WHERE id = ?`, c.name))
-	if err != nil {
-		return
-	}
-
-	c.delStmt, err = c.kv.conn.Prepare(fmt.Sprintf("DELETE FROM %s WHERE key = ?", c.name))
-	if err != nil {
-		return
-	}
-
-	if c.opts.FTS {
-		err = c.createFTSTable()
-		if err != nil {
-			return
+func (c *Collection) prepareUniqueStmts() (err error) {
+	for _, col := range c.opts.Columns {
+		if !col.Unique {
+			continue
 		}
+
+		stmt, err := c.makeGetStmt(col.Name)
+		if err != nil {
+			return err
+		}
+
+		c.uniqueStmt[col.Name] = stmt
+	}
+	return
+}
+
+func (c *Collection) prepareInsertStmt() (err error) {
+	insertSql := strings.Builder{}
+	insertSql.WriteString("INSERT INTO ")
+	insertSql.WriteString(c.name)
+	insertSql.WriteString(" (id, val")
+	for _, col := range c.opts.Columns {
+		insertSql.WriteString(",")
+		insertSql.WriteString(col.Name)
+	}
+	insertSql.WriteString(") VALUES (?,?")
+	for range c.opts.Columns {
+		insertSql.WriteString(",?")
+	}
+	insertSql.WriteString(")")
+
+	fmt.Printf("insert sql: %s\n", insertSql.String())
+	c.insStmt, err = c.kv.conn.Prepare(insertSql.String())
+	if err != nil {
+		return
 	}
 
+	return
+}
+
+func (c *Collection) preparePutStmt() (err error) {
+	sql := strings.Builder{}
+	sql.WriteString("INSERT INTO ")
+	sql.WriteString(c.name)
+	sql.WriteString(" (id, val")
+	for _, col := range c.opts.Columns {
+		sql.WriteString(",")
+		sql.WriteString(col.Name)
+	}
+	sql.WriteString(") VALUES (?,?")
+	for range c.opts.Columns {
+		sql.WriteString(",?")
+	}
+	sql.WriteString(")")
+
+	sql.WriteString(" ON CONFLICT(id) DO UPDATE SET val=excluded.val")
+	for _, col := range c.opts.Columns {
+		sql.WriteString(", ")
+		sql.WriteString(col.Name)
+		sql.WriteString("=excluded.")
+		sql.WriteString(col.Name)
+	}
+
+	c.putStmt, err = c.kv.conn.Prepare(sql.String())
+
+	return
+}
+
+func (c *Collection) prepareDeleteStmt() (err error) {
+	c.delStmt, err = c.kv.conn.Prepare(fmt.Sprintf("DELETE FROM %s WHERE id = ?", c.name))
 	return
 }
 

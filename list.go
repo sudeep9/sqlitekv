@@ -13,24 +13,11 @@ type ListOptions struct {
 }
 
 func (c *Collection) List(ctx context.Context, keyPrefix string, fn GetFn, opts ListOptions) (err error) {
-	if keyPrefix == "" {
-		keyPrefix = "/"
-	} else {
-		if !strings.HasSuffix(keyPrefix, c.opts.Delimiter) {
-			keyPrefix += c.opts.Delimiter
-		}
-	}
-
 	sql := strings.Builder{}
 	genColSelect := c.getGeneratedColumnSelect()
 	sql.WriteString(fmt.Sprintf("select id, key, json(val) %s from %s", genColSelect, c.name))
 
 	sql.WriteString(" where key like ?")
-
-	level := strings.Count(keyPrefix, c.opts.Delimiter)
-	if !opts.All {
-		sql.WriteString(fmt.Sprintf(" and level = %d", level))
-	}
 
 	if len(opts.OrderBy) > 0 {
 		sql.WriteString(" order by ")

@@ -2,19 +2,41 @@ package sqlitekv
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"sync"
 )
 
-type counterState struct {
-	Current int64 `json:"current"`
-	Limit   int64 `json:"limit"`
+func (c *Counter) GetId() int64 {
+	return c.Id
+}
+func (c *Counter) SetId(id int64) {
+	c.Id = id
+}
+
+func (c *Counter) GetVal() (val []byte, err error) {
+	err = fmt.Errorf("not implemented")
+	return
+}
+
+func (c *Counter) SetVal(val []byte) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (c *Counter) Column(i int, name string) (ok bool, val any, err error) {
+	return false, nil, nil
+}
+
+func (c *Counter) SetColumn(i int, name string, ok bool, val any) error {
+	return nil
 }
 
 type Counter struct {
-	state counterState
+	Id           int64
+	Start        int64 `json:"start"`
+	ReserveCount int64 `json:"reserve_count"`
+	Current      int64 `json:"current"`
+	Limit        int64 `json:"limit"`
 
-	key  string
 	col  *Collection
 	opts CounterOptions
 
@@ -26,7 +48,7 @@ type CounterOptions struct {
 	ReserveCount int64
 }
 
-func NewCounter(col *Collection, key string, opts CounterOptions) (c *Counter, err error) {
+func NewCounter(col *Collection, opts CounterOptions) (c *Counter, err error) {
 	if opts.ReserveCount <= 0 {
 		opts.ReserveCount = 100
 	}
@@ -36,9 +58,10 @@ func NewCounter(col *Collection, key string, opts CounterOptions) (c *Counter, e
 	}
 
 	c = &Counter{
-		key:  key,
-		col:  col,
-		opts: opts,
+		Start:        opts.StartCount,
+		ReserveCount: opts.ReserveCount,
+		col:          col,
+		opts:         opts,
 	}
 	err = c.init()
 	return
@@ -46,55 +69,49 @@ func NewCounter(col *Collection, key string, opts CounterOptions) (c *Counter, e
 
 func (c *Counter) Next(ctx context.Context) (counter int64, err error) {
 	c.mu.Lock()
-	if c.state.Current < c.state.Limit {
-		counter = c.state.Current
-		c.state.Current++
+	if c.Current < c.Limit {
+		counter = c.Current
+		c.Current++
 		c.mu.Unlock()
 		return counter, nil
 	}
 
-	counter = c.state.Current
-	c.state.Limit = c.state.Current + c.opts.ReserveCount
+	counter = c.Current
+	c.Limit = c.Current + c.opts.ReserveCount
 	err = c.put(ctx)
 	if err != nil {
 		c.mu.Unlock()
 		return
 	}
-	c.state.Current++
+	c.Current++
 	c.mu.Unlock()
 
 	return counter, nil
 }
 
 func (c *Counter) put(ctx context.Context) (err error) {
-	buf, err := json.Marshal(c.state)
-	if err != nil {
-		return
-	}
-	_, err = c.col.Put(ctx, c.key, buf)
+	//buf, err := json.Marshal(c.state)
+	//if err != nil {
+	//	return
+	//}
+	//_, err = c.col.Put(ctx, &c.state)
 	return
 }
 
 func (c *Counter) init() (err error) {
 	ctx := context.Background()
-	var state counterState
-	ok, err := c.col.Get(ctx, c.key, func(rid int64, _ string, buf []byte, gencols []any) error {
-		err = json.Unmarshal(buf, &state)
-		return err
-	})
+	ok, err := c.col.Get(ctx, c)
 	if err != nil {
 		return
 	}
 
-	c.state = state
-
 	if ok {
-		c.state.Current = c.state.Limit
+		c.Current = c.Limit
 	} else {
-		c.state.Current = c.opts.StartCount
+		c.Current = c.opts.StartCount
 	}
 
-	c.state.Limit = c.state.Current + c.opts.ReserveCount
+	c.Limit = c.Current + c.opts.ReserveCount
 	err = c.put(ctx)
 
 	return err

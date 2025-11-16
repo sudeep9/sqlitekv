@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sudeep9/hlc"
 	"github.com/sudeep9/sqlitekv"
@@ -23,44 +22,12 @@ func newState(kv *sqlitekv.KV) (s *State, err error) {
 		kv:  kv,
 		hlc: hlc.NewHLC(0),
 	}
-	s.genCol, err = kv.Collection("gen", nil)
+	s.genCol, err = sqlitekv.NewCollection(kv, "gen", nil)
 	if err != nil {
 		return
 	}
 
-	s.orgCol, err = kv.Collection("org", &sqlitekv.CollectionOptions{
-		Columns: []sqlitekv.GeneratedColumn{
-			{Name: "name", Type: "text", Def: "json_extract(val, '$.name')", Storage: "Stored"},
-		},
-	})
-	if err != nil {
-		return
-	}
-	s.patientCol, err = kv.Collection("patient", &sqlitekv.CollectionOptions{
-		Columns: []sqlitekv.GeneratedColumn{
-			{Name: "name", Type: "text", Def: "json_extract(val, '$.name')", Storage: "Stored"},
-			{Name: "phone", Type: "text", Def: "json_extract(val, '$.phone')", Storage: "Stored"},
-			{Name: "cas", Type: "integer", Def: "json_extract(val, '$._m.cas')", Storage: "Stored"},
-		},
-		FTS: true,
-	})
-	if err != nil {
-		return
-	}
-	s.rxCol, err = kv.Collection("rx", nil)
-	if err != nil {
-		return
-	}
-
-	maxCas, err := s.getMaxCas(context.Background())
-	if err != nil {
-		return
-	}
-
-	s.hlc.SetLastTS(maxCas)
-	fmt.Printf("maxCas = %d\n", maxCas)
-
-	s.counter, err = sqlitekv.NewCounter(s.genCol, "/counter", sqlitekv.CounterOptions{})
+	s.counter, err = sqlitekv.NewCounter(s.genCol, sqlitekv.CounterOptions{})
 	if err != nil {
 		return
 	}

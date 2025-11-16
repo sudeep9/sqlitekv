@@ -1,17 +1,44 @@
 package sqlitekv
 
-import "context"
+import (
+	"context"
+	"fmt"
+
+	"github.com/eatonphil/gosqlite"
+	"github.com/goccy/go-json"
+)
 
 type GetFn func(id int64, key string, rawJson []byte, genColVals []any) error
 
-func (c *Collection) Get(ctx context.Context, key string, fn GetFn) (ok bool, err error) {
+func (c *Collection) Get(ctx context.Context, obj CollectionType) (ok bool, err error) {
+	return c.getWithLock(ctx, "id", obj.GetId(), obj)
+}
+
+func (c *Collection) GetUnique(ctx context.Context, colname string, colval any, obj CollectionType) (ok bool, err error) {
+	return c.getWithLock(ctx, colname, colval, obj)
+}
+
+func (c *Collection) getWithLock(ctx context.Context, colname string, colval any, obj CollectionType) (ok bool, err error) {
+	var stmt *gosqlite.Stmt
+	if colname == "id" {
+		stmt = c.getStmt
+	} else {
+		stmt, ok = c.uniqueStmt[colname]
+		if !ok {
+			return false, fmt.Errorf("no unique index for column %s", colname)
+		}
+	}
+
 	err = c.kv.withReadLock(func() error {
-		ok, err = c.get(ctx, key, fn)
-		if err = c.getStmt.ClearBindings(); err != nil {
+		ok, err = c.get(ctx, stmt, colval, obj)
+		if err != nil {
+			return err
+		}
+		if err = stmt.ClearBindings(); err != nil {
 			return err
 		}
 
-		if err = c.getStmt.Reset(); err != nil {
+		if err = stmt.Reset(); err != nil {
 			return err
 		}
 
@@ -20,17 +47,17 @@ func (c *Collection) Get(ctx context.Context, key string, fn GetFn) (ok bool, er
 	return ok, err
 }
 
-func (c *Collection) get(ctx context.Context, key string, fn GetFn) (ok bool, err error) {
-	err = c.getStmt.Reset()
+func (c *Collection) get(ctx context.Context, stmt *gosqlite.Stmt, searchVal any, obj CollectionType) (ok bool, err error) {
+	err = stmt.Reset()
 	if err != nil {
 		return
 	}
 
-	if err = c.getStmt.Bind(key); err != nil {
+	if err = stmt.Bind(searchVal); err != nil {
 		return
 	}
 
-	ok, err = c.getStmt.Step()
+	ok, err = stmt.Step()
 	if err != nil {
 		return
 	}
@@ -38,92 +65,47 @@ func (c *Collection) get(ctx context.Context, key string, fn GetFn) (ok bool, er
 	if !ok {
 		return
 	}
-	if fn == nil {
-		return
-	}
 
-	rid, _, err := c.getStmt.ColumnInt64(0)
+	id, _, err := stmt.ColumnInt64(0)
 	if err != nil {
 		return
 	}
 
-	rawBytes, err := c.getStmt.ColumnRawBytes(1)
+	obj.SetId(id)
+
+	rawBytes, err := stmt.ColumnRawBytes(1)
 	if err != nil {
 		return
 	}
 
-	var genColVals []any
-	if len(c.opts.Columns) > 0 {
-		genColVals = make([]any, len(c.opts.Columns))
-		for i := range c.opts.Columns {
-			switch c.opts.Columns[i].Type {
-			case "text":
-				genColVals[i], _, err = c.getStmt.ColumnText(2 + i)
-			case "integer":
-				genColVals[i], _, err = c.getStmt.ColumnInt64(2 + i)
-			default:
-				genColVals[i] = nil
-			}
+	if c.opts.Json {
+		err = json.Unmarshal(rawBytes, obj)
+	} else {
+		err = obj.SetVal(rawBytes)
+	}
+
+	if err != nil {
+		return
+	}
+
+	var val any
+	for i := range c.opts.Columns {
+		switch c.opts.Columns[i].Type {
+		case "text":
+			val, ok, err = stmt.ColumnText(2 + i)
+		case "integer":
+			val, ok, err = stmt.ColumnInt64(2 + i)
+		default:
+			err = fmt.Errorf("unknown type for get type=%s", c.opts.Columns[i].Type)
+		}
+		if err != nil {
+			return
+		}
+		err = obj.SetColumn(i, c.opts.Columns[i].Name, ok, val)
+		if err != nil {
+			return
 		}
 	}
-
-	err = fn(rid, key, rawBytes, genColVals)
-
-	return
-}
-
-func (c *Collection) GetById(ctx context.Context, id int64, fn GetFn) (err error) {
-	c.kv.rw.RLock()
-	err = c.getById(ctx, id, fn)
-	c.kv.rw.RUnlock()
-	return
-}
-
-func (c *Collection) getById(ctx context.Context, id int64, fn GetFn) (err error) {
-	err = c.getByIdStmt.Reset()
-	if err != nil {
-		return
-	}
-
-	err = c.getByIdStmt.Bind(id)
-	if err != nil {
-		return
-	}
-
-	ok, err := c.getByIdStmt.Step()
-	if err != nil {
-		return
-	}
-	if !ok {
-		return
-	}
-
-	key, _, err := c.getStmt.ColumnText(0)
-	if err != nil {
-		return
-	}
-
-	rawBytes, err := c.getStmt.ColumnRawBytes(1)
-	if err != nil {
-		return
-	}
-
-	var genColVals []any
-	if len(c.opts.Columns) > 0 {
-		genColVals = make([]any, len(c.opts.Columns))
-		for i := range c.opts.Columns {
-			switch c.opts.Columns[i].Type {
-			case "text":
-				genColVals[i], _, err = c.getStmt.ColumnText(2 + i)
-			case "integer":
-				genColVals[i], _, err = c.getStmt.ColumnInt64(2 + i)
-			default:
-				genColVals[i] = nil
-			}
-		}
-	}
-
-	err = fn(id, key, rawBytes, genColVals)
 
 	return
 }

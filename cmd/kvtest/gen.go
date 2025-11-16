@@ -1,12 +1,6 @@
 package main
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"time"
-)
-
+/*
 func createOrgs(ctx context.Context, st *State, orgCount int) (err error) {
 	for i := 0; i < orgCount; i++ {
 		orgId, err := st.counter.Next(ctx)
@@ -111,3 +105,4 @@ func createRx(ctx context.Context, st *State, patientKey string) (err error) {
 	}
 	return
 }
+*/

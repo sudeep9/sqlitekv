@@ -17,8 +17,6 @@ type KV struct {
 	conn *gosqlite.Conn
 	opts *Options
 
-	defaultCol *Collection
-
 	rw sync.RWMutex
 }
 
@@ -66,20 +64,6 @@ func (kv *KV) init() (err error) {
 		}
 	}
 
-	return
-}
-
-func (kv *KV) DefaultCollection() *Collection {
-	return kv.defaultCol
-}
-
-func (kv *KV) Collection(name string, opts *CollectionOptions) (col *Collection, err error) {
-	col, err = newCollection(kv, name, opts)
-	return
-}
-
-func (kv *KV) JsonCollection(name string, opts *CollectionOptions) (col *Collection, err error) {
-	col, err = newCollection(kv, name, opts)
 	return
 }
 

@@ -1,4 +1,6 @@
 github.com/eatonphil/gosqlite v0.10.0 h1:5oslru1nTy0/g55+ntu237Brl1htiKQxLLpQJcdHobw=
 github.com/eatonphil/gosqlite v0.10.0/go.mod h1:BQrvW3lTI1o91VIArLBHqbRX8TuWeWmDoFQOGLnJ87o=
+github.com/goccy/go-json v0.10.5 h1:Fq85nIqj+gXn/S5ahsiTlK3TmC85qgirsdTP/+DeaC4=
+github.com/goccy/go-json v0.10.5/go.mod h1:oq7eo15ShAhp70Anwd5lgX2pLfOS3QCiwU/PULtXL6M=
 github.com/sudeep9/hlc v0.2.0 h1:zgN7kO1imT19MVPT+qqEo7e5axLUIwRwhscRQe1Php0=
 github.com/sudeep9/hlc v0.2.0/go.mod h1:4kxkLe7qgaiBHrGrZKus6pVfdbza02Pc8X021SNv4yA=

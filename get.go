@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"encoding/json"
+
 	"github.com/eatonphil/gosqlite"
-	"github.com/goccy/go-json"
 )
 
 type GetFn func(id int64, key string, rawJson []byte, genColVals []any) error

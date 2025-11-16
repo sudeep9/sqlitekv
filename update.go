@@ -3,7 +3,7 @@ package sqlitekv
 import (
 	"context"
 
-	"github.com/goccy/go-json"
+	"encoding/json"
 )
 
 func (c *Collection) Update(ctx context.Context, obj CollectionType) (changeCount int, err error) {

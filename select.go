@@ -2,7 +2,6 @@ package sqlitekv
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -55,7 +54,6 @@ func (c *Collection) Select(ctx context.Context, rowFn RowFn, opts SelectOptions
 }
 
 func (c *Collection) selectNoLock(ctx context.Context, sql string, rowFn RowFn) (err error) {
-	fmt.Printf("select sql: %s\n", sql)
 	stmt, err := c.kv.conn.Prepare(sql)
 	if err != nil {
 		return

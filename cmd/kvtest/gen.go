@@ -28,6 +28,7 @@ func createOrgs(ctx context.Context, st *State, orgCount int) (err error) {
 		err = createPatients(ctx, st, org.Id)
 		if err != nil {
 			fmt.Printf("failed to create patients for org %d: %v\n", org.Id, err)
+			return
 		}
 
 		fmt.Printf("Created org: %d\n", org.Id)

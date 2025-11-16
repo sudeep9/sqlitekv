@@ -12,7 +12,6 @@ type FTSOptions struct {
 }
 
 func (c *Collection) createFTSTable() (err error) {
-	fmt.Println("creating FTS virtual table and triggers")
 	columnListStr := ""
 	for _, col := range c.opts.FTS.Columns {
 		columnListStr += col + ","

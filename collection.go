@@ -3,7 +3,6 @@ package sqlitekv
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/eatonphil/gosqlite"
 )
@@ -35,7 +34,6 @@ type CollectionOptions struct {
 type Collection struct {
 	name    string
 	kv      *KV
-	mu      sync.Mutex
 	opts    *CollectionOptions
 	getStmt *gosqlite.Stmt
 	insStmt *gosqlite.Stmt
@@ -69,55 +67,47 @@ func NewCollection(kv *KV, name string, opts *CollectionOptions) (col *Collectio
 }
 
 func (c *Collection) init() (err error) {
-	fmt.Printf("creating table\n")
 	err = c.createTable()
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("creating indexes\n")
 	err = c.createIndexes()
 	if err != nil {
 		err = fmt.Errorf("create indexes failed: %w", err)
 		return
 	}
 
-	fmt.Printf("preparing get statement\n")
 	err = c.prepareGetStmt()
 	if err != nil {
 		err = fmt.Errorf("prepare get statement failed: %w", err)
 		return
 	}
 
-	fmt.Printf("preparing unique statements\n")
 	err = c.prepareUniqueStmts()
 	if err != nil {
 		err = fmt.Errorf("prepare unique statement failed: %w", err)
 		return
 	}
 
-	fmt.Printf("preparing insert statement\n")
 	err = c.prepareInsertStmt()
 	if err != nil {
 		err = fmt.Errorf("prepare insert statement failed: %w", err)
 		return
 	}
 
-	fmt.Println("preparing update statement")
 	err = c.prepareUpdStmt()
 	if err != nil {
 		err = fmt.Errorf("prepare update statement failed: %w", err)
 		return
 	}
 
-	fmt.Printf("preparing put statement\n")
 	err = c.preparePutStmt()
 	if err != nil {
 		err = fmt.Errorf("prepare put statement failed: %w", err)
 		return
 	}
 
-	fmt.Printf("preparing delete statement\n")
 	err = c.prepareDeleteStmt()
 	if err != nil {
 		return
@@ -157,7 +147,6 @@ func (c *Collection) createTable() (err error) {
 
 	sql.WriteString(")")
 
-	fmt.Printf("create table: %s\n", sql.String())
 	if err = c.kv.conn.Exec(sql.String()); err != nil {
 		return
 	}
@@ -168,7 +157,6 @@ func (c *Collection) createTable() (err error) {
 func (c *Collection) createIndexes() (err error) {
 	for _, colName := range c.opts.Indexes {
 		createIndexSql := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %[1]s_%[2]s_idx ON %[1]s (%[2]s)`, c.name, colName)
-		fmt.Printf("index: %s", createIndexSql)
 		if err = c.kv.conn.Exec(createIndexSql); err != nil {
 			return
 		}
@@ -232,7 +220,6 @@ func (c *Collection) prepareInsertStmt() (err error) {
 	}
 	insertSql.WriteString(")")
 
-	fmt.Printf("insert sql: %s\n", insertSql.String())
 	c.insStmt, err = c.kv.conn.Prepare(insertSql.String())
 	if err != nil {
 		return
@@ -242,7 +229,6 @@ func (c *Collection) prepareInsertStmt() (err error) {
 }
 
 func (c *Collection) prepareUpdStmt() (err error) {
-	fmt.Println("preparing update statement")
 	columnListstr := ""
 	for _, col := range c.opts.Columns {
 		columnListstr += fmt.Sprintf(",%s=?", col.Name)
@@ -259,7 +245,6 @@ func (c *Collection) prepareUpdStmt() (err error) {
 }
 
 func (c *Collection) preparePutStmt() (err error) {
-	fmt.Println("preparing put statement")
 	sql := strings.Builder{}
 	sql.WriteString("INSERT INTO ")
 	sql.WriteString(c.name)

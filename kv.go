@@ -14,8 +14,9 @@ type Options struct {
 }
 
 type KV struct {
-	conn *gosqlite.Conn
-	opts *Options
+	dbpath string
+	conn   *gosqlite.Conn
+	opts   *Options
 
 	rw sync.RWMutex
 }
@@ -33,7 +34,7 @@ func Open(dbpath string, opts *Options) (kv *KV, err error) {
 		return
 	}
 
-	kv = &KV{conn: conn, opts: opts}
+	kv = &KV{dbpath: dbpath, conn: conn, opts: opts}
 
 	err = kv.init()
 	if err != nil {
@@ -46,6 +47,16 @@ func Open(dbpath string, opts *Options) (kv *KV, err error) {
 		return true
 	})
 
+	return
+}
+
+func (kv *KV) WalCheckpoint() (err error) {
+	err = kv.conn.Exec("PRAGMA wal_checkpoint")
+	return
+}
+
+func (kv *KV) Clone() (newKv *KV, err error) {
+	newKv, err = Open(kv.dbpath, kv.opts)
 	return
 }
 

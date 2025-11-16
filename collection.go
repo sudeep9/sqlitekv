@@ -24,11 +24,12 @@ type DerivedColumn struct {
 }
 
 type CollectionOptions struct {
-	Columns []DerivedColumn
-	Indexes []string
-	AutoId  bool
-	Json    bool
-	FTS     *FTSOptions
+	Columns  []DerivedColumn
+	Indexes  []string
+	AutoId   bool
+	Json     bool
+	FTS      *FTSOptions
+	Compress bool
 }
 
 type Collection struct {

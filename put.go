@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/goccy/go-json"
+	"github.com/klauspost/compress/zstd"
 )
 
 func (c *Collection) Put(ctx context.Context, val CollectionType) (changeCount int, err error) {
@@ -51,13 +52,21 @@ func (c *Collection) bindInsertParams(val CollectionType, isUpdate bool) (args [
 		}
 	}
 
+	var buf []byte
 	if c.opts.Json {
-		args[1], err = json.Marshal(val)
+		buf, err = json.Marshal(val)
 	} else {
-		args[1], err = val.GetVal()
+		buf, err = val.GetVal()
 	}
 	if err != nil {
 		return
+	}
+
+	if c.opts.Compress {
+		cbuf := Compress(buf)
+		args[1] = cbuf
+	} else {
+		args[1] = buf
 	}
 
 	var ok bool
@@ -77,4 +86,14 @@ func (c *Collection) bindInsertParams(val CollectionType, isUpdate bool) (args [
 	}
 
 	return
+}
+
+// Create a writer that caches compressors.
+// For this operation type we supply a nil Reader.
+var encoder, _ = zstd.NewWriter(nil)
+
+// Compress a buffer.
+// If you have a destination buffer, the allocation in the call can also be eliminated.
+func Compress(src []byte) []byte {
+	return encoder.EncodeAll(src, make([]byte, 0, len(src)))
 }

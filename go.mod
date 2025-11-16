@@ -8,3 +8,5 @@ require (
 )
 
 require github.com/goccy/go-json v0.10.5
+
+require github.com/klauspost/compress v1.18.1 // indirect

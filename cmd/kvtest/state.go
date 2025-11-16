@@ -49,9 +49,6 @@ func newState(logger *slog.Logger, kv *sqlitekv.KV) (s *State, err error) {
 	s.patientCol, err = sqlitekv.NewCollection(kv, "patient", &sqlitekv.CollectionOptions{
 		AutoId: true,
 		Json:   true,
-		FTS: &sqlitekv.FTSOptions{
-			ExcludeKeys: []string{"_m"},
-		},
 	})
 	if err != nil {
 		return

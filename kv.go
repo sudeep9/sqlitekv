@@ -84,3 +84,25 @@ func (k *KV) withWriteLock(fn func() error) (err error) {
 	k.rw.Unlock()
 	return
 }
+
+func mapSqliteError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	sqliteErr, ok := err.(*gosqlite.Error)
+	if !ok {
+		return err
+	}
+
+	code := sqliteErr.Code()
+
+	switch code {
+	case SQLITE_CONSTRAINT_UNIQUE:
+		return ErrUniqueConstraint
+	case SQLITE_CONSTRAINT_PRIMARYKEY:
+		return ErrPrimaryConstraint
+	default:
+		return err
+	}
+}

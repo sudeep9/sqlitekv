@@ -6,23 +6,33 @@ import (
 	"github.com/goccy/go-json"
 )
 
-func (c *Collection) Put(ctx context.Context, val CollectionType) (err error) {
-	err = c.kv.withWriteLock(func() error {
-		return c.put(ctx, val)
-	})
-
-	return
-}
-
-func (c *Collection) put(ctx context.Context, val CollectionType) (err error) {
+func (c *Collection) Put(ctx context.Context, val CollectionType) (changeCount int, err error) {
 	args, err := c.bindInsertParams(val, true)
 	if err != nil {
 		return
 	}
+	err = c.kv.withWriteLock(func() error {
+		changeCount, err = c.put(ctx, args)
+		c.updStmt.ClearBindings()
+
+		return err
+	})
+
+	if err != nil {
+		err = mapSqliteError(err)
+		return
+	}
+
+	return
+}
+
+func (c *Collection) put(ctx context.Context, args []any) (changes int, err error) {
 	err = c.putStmt.Exec(args...)
 	if err != nil {
 		return
 	}
+
+	changes = c.kv.conn.Changes()
 
 	return
 }

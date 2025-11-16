@@ -40,6 +40,7 @@ type Collection struct {
 	getStmt *gosqlite.Stmt
 	insStmt *gosqlite.Stmt
 	putStmt *gosqlite.Stmt
+	updStmt *gosqlite.Stmt
 	delStmt *gosqlite.Stmt
 
 	uniqueStmt map[string]*gosqlite.Stmt
@@ -99,6 +100,13 @@ func (c *Collection) init() (err error) {
 	err = c.prepareInsertStmt()
 	if err != nil {
 		err = fmt.Errorf("prepare insert statement failed: %w", err)
+		return
+	}
+
+	fmt.Println("preparing update statement")
+	err = c.prepareUpdStmt()
+	if err != nil {
+		err = fmt.Errorf("prepare update statement failed: %w", err)
 		return
 	}
 
@@ -226,6 +234,23 @@ func (c *Collection) prepareInsertStmt() (err error) {
 
 	fmt.Printf("insert sql: %s\n", insertSql.String())
 	c.insStmt, err = c.kv.conn.Prepare(insertSql.String())
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (c *Collection) prepareUpdStmt() (err error) {
+	fmt.Println("preparing update statement")
+	columnListstr := ""
+	for _, col := range c.opts.Columns {
+		columnListstr += fmt.Sprintf(",%s=?", col.Name)
+	}
+
+	sql := fmt.Sprintf(`update %[1]s set val=? %[2]s where id=?`, c.name, columnListstr)
+
+	c.updStmt, err = c.kv.conn.Prepare(sql)
 	if err != nil {
 		return
 	}

@@ -8,6 +8,7 @@ const (
 )
 
 var (
+	ErrUnimplemented     = errors.New("not implemented")
 	ErrUniqueConstraint  = errors.New("constraint failed")
 	ErrPrimaryConstraint = errors.New("primary key constraint failed")
 )

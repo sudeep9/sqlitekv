@@ -9,14 +9,23 @@ func (c *Collection) Insert(ctx context.Context, val CollectionType) (changeCoun
 	if err != nil {
 		return
 	}
-	err = c.kv.withWriteLock(func() error {
-		changeCount, err = c.insert(ctx, args)
-		c.insStmt.ClearBindings()
-		return err
-	})
-	if err != nil {
-		err = mapSqliteError(err)
-		return
+
+	done := false
+	for !done {
+		err = c.kv.withWriteLock(func() error {
+			changeCount, err = c.insert(ctx, args)
+			c.insStmt.ClearBindings()
+			return err
+		})
+		if err != nil {
+			err = mapSqliteError(err)
+			if c.opts.AutoId && err == ErrPrimaryConstraint {
+				err = nil
+				continue
+			}
+			return
+		}
+		done = true
 	}
 
 	return

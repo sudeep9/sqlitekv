@@ -31,6 +31,37 @@ func newState(kv *sqlitekv.KV) (s *State, err error) {
 	if err != nil {
 		return
 	}
+
+	s.orgCol, err = sqlitekv.NewCollection(kv, "org", &sqlitekv.CollectionOptions{
+		AutoId: true,
+		Json:   true,
+		Columns: []sqlitekv.DerivedColumn{
+			{Name: "name", Type: "text", Unique: true},
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	s.patientCol, err = sqlitekv.NewCollection(kv, "patient", &sqlitekv.CollectionOptions{
+		AutoId: true,
+		Json:   true,
+		FTS: &sqlitekv.FTSOptions{
+			ExcludeKeys: []string{"_m"},
+		},
+	})
+	if err != nil {
+		return
+	}
+
+	s.rxCol, err = sqlitekv.NewCollection(kv, "rx", &sqlitekv.CollectionOptions{
+		AutoId: true,
+		Json:   true,
+	})
+	if err != nil {
+		return
+	}
+
 	return
 }
 

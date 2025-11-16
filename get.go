@@ -66,6 +66,12 @@ func (c *Collection) get(ctx context.Context, stmt *gosqlite.Stmt, searchVal any
 		return
 	}
 
+	err = c.parseObj(stmt, obj)
+
+	return
+}
+
+func (c *Collection) parseObj(stmt *gosqlite.Stmt, obj CollectionType) (err error) {
 	id, _, err := stmt.ColumnInt64(0)
 	if err != nil {
 		return
@@ -89,6 +95,7 @@ func (c *Collection) get(ctx context.Context, stmt *gosqlite.Stmt, searchVal any
 	}
 
 	var val any
+	var ok bool
 	for i := range c.opts.Columns {
 		switch c.opts.Columns[i].Type {
 		case "text":
@@ -106,6 +113,5 @@ func (c *Collection) get(ctx context.Context, stmt *gosqlite.Stmt, searchVal any
 			return
 		}
 	}
-
 	return
 }

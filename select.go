@@ -2,41 +2,31 @@ package sqlitekv
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/eatonphil/gosqlite"
 )
 
 type SelectOptions struct {
-	TableAlias string
-	Columns    []string
-	Where      string
-	OrderBy    []string
-	Limit      int
+	Where   string
+	OrderBy []string
+	Limit   int
 }
 
-type GetColumnValueFn func(i int) (val any, ok bool, err error)
+type ParseFn func(obj CollectionType) error
+type RowFn func(parseFn ParseFn) error
 
-type RowFn func(fn GetColumnValueFn) error
-
-func (c *Collection) Select(ctx context.Context, rowfn RowFn, opts SelectOptions) (err error) {
+func (c *Collection) Select(ctx context.Context, rowFn RowFn, opts SelectOptions) (err error) {
 	sql := strings.Builder{}
 
-	sql.WriteString("select ")
-	for i, col := range opts.Columns {
-		if i > 0 {
-			sql.WriteString(", ")
-		}
-		sql.WriteString(col)
+	sql.WriteString("select id, val")
+	for _, col := range c.opts.Columns {
+		sql.WriteString(",")
+		sql.WriteString(col.Name)
 	}
 
 	sql.WriteString(" from ")
 	sql.WriteString(c.name)
-	if opts.TableAlias != "" {
-		sql.WriteString(" as ")
-		sql.WriteString(opts.TableAlias)
-	}
 
 	if opts.Where != "" {
 		sql.WriteString(" where ")
@@ -54,7 +44,7 @@ func (c *Collection) Select(ctx context.Context, rowfn RowFn, opts SelectOptions
 	}
 
 	err = c.kv.withReadLock(func() error {
-		return c.selectNoLock(ctx, sql.String(), rowfn)
+		return c.selectNoLock(ctx, sql.String(), rowFn)
 	})
 
 	if err != nil {
@@ -64,35 +54,17 @@ func (c *Collection) Select(ctx context.Context, rowfn RowFn, opts SelectOptions
 	return
 }
 
-func getValue(stmt *gosqlite.Stmt) GetColumnValueFn {
-	return func(i int) (val any, ok bool, err error) {
-		colType := stmt.ColumnType(i)
-		switch colType {
-		case 1:
-			val, ok, err = stmt.ColumnInt64(i)
-		case 2:
-			val, ok, err = stmt.ColumnDouble(i)
-		case 3:
-			val, ok, err = stmt.ColumnRawString(i)
-		case 4:
-			val, err = stmt.ColumnBlob(i)
-			ok = true
-		default:
-			err = nil
-			ok = false
-		}
-		return val, ok, err
-	}
-}
-
 func (c *Collection) selectNoLock(ctx context.Context, sql string, rowFn RowFn) (err error) {
+	fmt.Printf("select sql: %s\n", sql)
 	stmt, err := c.kv.conn.Prepare(sql)
 	if err != nil {
 		return
 	}
 	defer stmt.Close()
 
-	valueFn := getValue(stmt)
+	parseFn := func(obj CollectionType) error {
+		return c.parseObj(stmt, obj)
+	}
 
 	for {
 		ok, errStep := stmt.Step()
@@ -104,11 +76,26 @@ func (c *Collection) selectNoLock(ctx context.Context, sql string, rowFn RowFn) 
 			break
 		}
 
-		err = rowFn(valueFn)
+		err = rowFn(parseFn)
 		if err != nil {
-			return
+			return err
 		}
 	}
 
 	return nil
+}
+
+func GetAccumulateFn[T any](out *[]*T) (fn RowFn) {
+	fn = func(parseFn ParseFn) error {
+		v := new(T)
+		obj := any(v).(CollectionType)
+		err := parseFn(obj)
+		if err != nil {
+			return err
+		}
+		*out = append(*out, v)
+		return nil
+	}
+
+	return fn
 }

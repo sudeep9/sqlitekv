@@ -85,30 +85,18 @@ func main() {
 		return
 	}
 
-	phone := "1234"
+	plist := []*Person{}
+	rowFn := sqlitekv.GetAccumulateFn(&plist)
 
-	p := &Person{}
-
-	ok, err := col.GetUnique(ctx, "phone", phone, p)
+	err = col.Select(ctx, rowFn, sqlitekv.SelectOptions{})
 	if err != nil {
-		logger.Error("failed to get person by phone", slog.String("error", err.Error()))
+		logger.Error("failed to select persons", slog.String("error", err.Error()))
 		return
 	}
 
-	if !ok {
-		logger.Info("person not found, creating new one", slog.String("phone", phone))
-		p.FirstName = "John"
-		p.LastName = "Doe"
-		p.Phone = phone
-		p.Age = 30
-		err = col.Put(ctx, p)
-		if err != nil {
-			logger.Error("failed to put person", slog.String("error", err.Error()))
-			return
-		}
+	for _, p := range plist {
+		logger.Info("person", slog.String("firstName", p.FirstName), slog.String("lastName", p.LastName), slog.String("phone", p.Phone), slog.Int("age", p.Age))
 	}
-
-	logger.Info("person retrieved", slog.Bool("found", ok), slog.Any("person", p))
 
 	//err = createOrgs(ctx, st, 100)
 	//if err != nil {

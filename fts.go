@@ -3,6 +3,7 @@ package sqlitekv
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 type FTSOptions struct {
@@ -67,10 +68,16 @@ func (c *Collection) createFTSTable() (err error) {
 }
 
 func (c *Collection) Search(ctx context.Context, query string, rowfn RowFn) (err error) {
+	colListStr := strings.Builder{}
+	for _, col := range c.opts.Columns {
+		colListStr.WriteString(", c.")
+		colListStr.WriteString(col.Name)
+	}
+
 	sql := fmt.Sprintf(`
-		select c.id, c.key, json(c.val)
+		select c.id, c.val %[3]s
 		from %[1]s c join %[1]s_ft f on c.id = f.rowid where f.val match '%[2]s'`,
-		c.name, query)
+		c.name, query, colListStr.String())
 
 	err = c.kv.withReadLock(func() error {
 		return c.selectNoLock(ctx, sql, rowfn)

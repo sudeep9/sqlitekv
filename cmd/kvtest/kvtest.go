@@ -90,48 +90,33 @@ func main() {
 		return
 	}
 
-	plist := []*Person{
-		{FirstName: "John", LastName: "Doe", Phone: "123-456-7890", Age: 30},
-		{FirstName: "Jane", LastName: "Smith", Phone: "987-654-3210", Age: 25},
-		{FirstName: "Alice", LastName: "Johnson", Phone: "555-123-4567", Age: 28},
-		{FirstName: "Bob", LastName: "Brown", Phone: "444-987-6543", Age: 35},
+	plist := []*Person{}
+
+	err = col.Search(ctx, "john", sqlitekv.GetAccumulateFn(&plist))
+	if err != nil {
+		logger.Error("failed to search persons", slog.String("error", err.Error()))
+		return
 	}
 
 	for _, p := range plist {
-		err = col.Put(ctx, p)
-		if err != nil {
-			logger.Error("failed to put person", slog.String("error", err.Error()))
-			return
-		}
+		fmt.Printf("Person: %+v\n", p)
 	}
 
-	//err = createOrgs(ctx, st, 100)
-	//if err != nil {
-	//	logger.Error("failed to create orgs", slog.String("error", err.Error()))
-	//	return
-	//}
-
 	/*
-			maxCas := int64(0)
-			st.patientCol.Select(ctx, func(fn sqlitekv.GetColumnValueFn) error {
-				v, _, err := fn(0)
-				if err != nil {
-					return err
-				}
-				if v == nil {
-					return nil
-				}
-				cas := v.(int64)
-				if cas > maxCas {
-					maxCas = cas
-				}
-				return nil
-			}, sqlitekv.SelectOptions{
-				Columns: []string{"cas"},
-			})
+		plist := []*Person{
+			{FirstName: "John", LastName: "Doe", Phone: "123-456-7890", Age: 30},
+			{FirstName: "Jane", LastName: "Smith", Phone: "987-654-3210", Age: 25},
+			{FirstName: "Alice", LastName: "Johnson", Phone: "555-123-4567", Age: 28},
+			{FirstName: "Bob", LastName: "Brown", Phone: "444-987-6543", Age: 35},
+		}
 
-			logger.Info("max cas", slog.Int64("maxCas", maxCas))
-		logger.Info("kvtest completed", slog.Duration("duration", time.Since(now)))
+		for _, p := range plist {
+			err = col.Put(ctx, p)
+			if err != nil {
+				logger.Error("failed to put person", slog.String("error", err.Error()))
+				return
+			}
+		}
 	*/
 
 }

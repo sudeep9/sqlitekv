@@ -15,7 +15,7 @@ func (c *Collection) Put(ctx context.Context, val CollectionType) (err error) {
 }
 
 func (c *Collection) put(ctx context.Context, val CollectionType) (err error) {
-	args, err := c.bindInsertParams(val)
+	args, err := c.bindInsertParams(val, true)
 	if err != nil {
 		return
 	}
@@ -27,14 +27,18 @@ func (c *Collection) put(ctx context.Context, val CollectionType) (err error) {
 	return
 }
 
-func (c *Collection) bindInsertParams(val CollectionType) (args []any, err error) {
+func (c *Collection) bindInsertParams(val CollectionType, isUpdate bool) (args []any, err error) {
 	args = make([]any, 2+len(c.opts.Columns))
-	if c.opts.AutoId {
-		id := GenerateID64()
-		args[0] = id
-		val.SetId(id)
-	} else {
+	if isUpdate {
 		args[0] = val.GetId()
+	} else {
+		if c.opts.AutoId {
+			id := GenerateID64()
+			args[0] = id
+			val.SetId(id)
+		} else {
+			args[0] = val.GetId()
+		}
 	}
 
 	if c.opts.Json {

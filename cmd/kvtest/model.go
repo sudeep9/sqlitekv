@@ -1,11 +1,9 @@
 package main
 
 type Metadata struct {
-	RowId int64  `json:"-"`
-	Key   string `json:"-"`
-	Its   int64  `json:"its"`
-	Uts   int64  `json:"uts"`
-	Cas   int64  `json:"cas"`
+	Its int64 `json:"its"`
+	Uts int64 `json:"uts"`
+	Cas int64 `json:"cas"`
 }
 
 type Org struct {

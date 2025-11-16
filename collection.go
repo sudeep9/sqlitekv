@@ -29,7 +29,7 @@ type CollectionOptions struct {
 	Indexes []string
 	AutoId  bool
 	Json    bool
-	FTS     bool
+	FTS     *FTSOptions
 }
 
 type Collection struct {
@@ -77,30 +77,35 @@ func (c *Collection) init() (err error) {
 	fmt.Printf("creating indexes\n")
 	err = c.createIndexes()
 	if err != nil {
+		err = fmt.Errorf("create indexes failed: %w", err)
 		return
 	}
 
 	fmt.Printf("preparing get statement\n")
 	err = c.prepareGetStmt()
 	if err != nil {
+		err = fmt.Errorf("prepare get statement failed: %w", err)
 		return
 	}
 
 	fmt.Printf("preparing unique statements\n")
 	err = c.prepareUniqueStmts()
 	if err != nil {
+		err = fmt.Errorf("prepare unique statement failed: %w", err)
 		return
 	}
 
 	fmt.Printf("preparing insert statement\n")
 	err = c.prepareInsertStmt()
 	if err != nil {
+		err = fmt.Errorf("prepare insert statement failed: %w", err)
 		return
 	}
 
 	fmt.Printf("preparing put statement\n")
 	err = c.preparePutStmt()
 	if err != nil {
+		err = fmt.Errorf("prepare put statement failed: %w", err)
 		return
 	}
 
@@ -110,12 +115,12 @@ func (c *Collection) init() (err error) {
 		return
 	}
 
-	//if c.opts.FTS {
-	//	err = c.createFTSTable()
-	//	if err != nil {
-	//		return
-	//	}
-	//}
+	if c.opts.FTS != nil {
+		err = c.createFTSTable()
+		if err != nil {
+			return
+		}
+	}
 
 	return
 }
@@ -208,7 +213,7 @@ func (c *Collection) prepareInsertStmt() (err error) {
 	insertSql := strings.Builder{}
 	insertSql.WriteString("INSERT INTO ")
 	insertSql.WriteString(c.name)
-	insertSql.WriteString(" (id, val")
+	insertSql.WriteString(" (id,val")
 	for _, col := range c.opts.Columns {
 		insertSql.WriteString(",")
 		insertSql.WriteString(col.Name)
@@ -229,6 +234,7 @@ func (c *Collection) prepareInsertStmt() (err error) {
 }
 
 func (c *Collection) preparePutStmt() (err error) {
+	fmt.Println("preparing put statement")
 	sql := strings.Builder{}
 	sql.WriteString("INSERT INTO ")
 	sql.WriteString(c.name)

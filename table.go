@@ -86,8 +86,6 @@ func (t *Table) createTable() (err error) {
 	}
 	s.WriteString(")")
 
-	fmt.Println("create table:", s.String())
-
 	_, err = t.db.Exec(s.String())
 	return
 }

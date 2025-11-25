@@ -105,11 +105,10 @@ func NewKeyVal[T any](db *sql.DB, name string, opts KeyValOptions[T]) (kv *KeyVa
 		if err != nil {
 			return
 		}
+	}
 
-		if kv.latestDictVer == 0 {
-			err = fmt.Errorf("no dictionary found for key '%s'", kv.tab.Name)
-			return
-		}
+	if kv.latestDictVer == 0 && kv.opts.UseDict {
+		kv.opts.UseDict = false
 	}
 
 	kv.encodeOpt = EncodeOptions{
@@ -178,7 +177,6 @@ func (kv *KeyVal[T]) getUnique(columnName string, pkey any, obj *T) (ok bool, er
 		s.WriteString(" WHERE flags & 1 = 0 AND ")
 		s.WriteString(columnName)
 		s.WriteString(" = ?")
-		fmt.Println(s.String())
 		return s.String()
 	}, []any{pkey}, scanArgs...)
 	if !ok || err != nil {

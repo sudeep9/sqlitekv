@@ -23,7 +23,7 @@ func (c *DictCollection) init() (err error) {
 	_, err = c.db.Exec(`
 	CREATE TABLE IF NOT EXISTS comp_dict (
 		key TEXT NOT NULL,
-		ver INTEGER NOT NULL DEFAULT 1,
+		ver INTEGER NOT NULL,
 		dict blob NOT NULL,
 		PRIMARY KEY (key, ver)
 	)`)
@@ -55,10 +55,15 @@ func (c *DictCollection) Get(key string, ver uint8) (ok bool, dict Dict, err err
 }
 
 func (c *DictCollection) GetMaxVersion(key string) (maxVer uint8, err error) {
+	var n *int64
 	row := c.db.QueryRow(`SELECT MAX(ver) FROM comp_dict WHERE key = ?`, key)
-	err = row.Scan(&maxVer)
+	err = row.Scan(&n)
 	if err == sql.ErrNoRows {
 		err = nil
+		return
+	}
+	if n != nil {
+		maxVer = uint8(*n)
 	}
 	return
 }

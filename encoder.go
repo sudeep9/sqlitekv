@@ -193,9 +193,7 @@ func (e *Encoder) DecodeBuf(src []byte, flags int64, opts DecodeOptions) (buf []
 
 	if !IsDictCompressed(flags) {
 		buf, err = gozstd.Decompress(nil, src)
-		if err != nil {
-			return nil, err
-		}
+		return
 	}
 
 	if e.dictColl == nil {

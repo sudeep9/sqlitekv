@@ -1,6 +1,6 @@
-github.com/eatonphil/gosqlite v0.10.0 h1:5oslru1nTy0/g55+ntu237Brl1htiKQxLLpQJcdHobw=
-github.com/eatonphil/gosqlite v0.10.0/go.mod h1:BQrvW3lTI1o91VIArLBHqbRX8TuWeWmDoFQOGLnJ87o=
-github.com/klauspost/compress v1.18.1 h1:bcSGx7UbpBqMChDtsF28Lw6v/G94LPrrbMbdC3JH2co=
-github.com/klauspost/compress v1.18.1/go.mod h1:ZQFFVG+MdnR0P+l6wpXgIL4NTtwiKIdBnrBd8Nrxr+0=
-github.com/sudeep9/hlc v0.2.0 h1:zgN7kO1imT19MVPT+qqEo7e5axLUIwRwhscRQe1Php0=
-github.com/sudeep9/hlc v0.2.0/go.mod h1:4kxkLe7qgaiBHrGrZKus6pVfdbza02Pc8X021SNv4yA=
+github.com/fxamacker/cbor/v2 v2.9.0 h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=
+github.com/fxamacker/cbor/v2 v2.9.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
+github.com/valyala/gozstd v1.24.0 h1:M/9L3h7bVwbj2gZwrmuoaxzwVrmBUvos2jG9cZtuhlc=
+github.com/valyala/gozstd v1.24.0/go.mod h1:y5Ew47GLlP37EkTB+B4s7r6A5rdaeB7ftbl9zoYiIPQ=
+github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
+github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=

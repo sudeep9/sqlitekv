@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"zombiezen.com/go/sqlite"
+	"zombiezen.com/go/sqlite/sqlitex"
 )
 
 type TableField struct {
@@ -20,18 +23,16 @@ type TableOptions struct {
 }
 
 type Table struct {
-	Name      string
-	opts      TableOptions
-	db        *sql.DB
-	stmtStore *StmtStore
+	Name string
+	opts TableOptions
+	db   *DB
 }
 
-func NewTable(db *sql.DB, name string, opts TableOptions) (t *Table, err error) {
+func NewTable(db *DB, name string, opts TableOptions) (t *Table, err error) {
 	t = &Table{
-		Name:      name,
-		opts:      opts,
-		db:        db,
-		stmtStore: NewStmtStore(),
+		Name: name,
+		opts: opts,
+		db:   db,
 	}
 
 	err = t.init()
@@ -54,10 +55,6 @@ func (t *Table) init() (err error) {
 	}
 
 	return
-}
-
-func (t Table) StmtStore() *StmtStore {
-	return t.stmtStore
 }
 
 func (t *Table) createTable() (err error) {
@@ -86,7 +83,9 @@ func (t *Table) createTable() (err error) {
 	}
 	s.WriteString(")")
 
-	_, err = t.db.Exec(s.String())
+	err = t.db.WithWrite(func(c *sqlite.Conn) error {
+		return sqlitex.Execute(c, s.String(), nil)
+	})
 	return
 }
 
@@ -97,8 +96,10 @@ func (t *Table) createIndexes() (err error) {
 		}
 
 		indexName := fmt.Sprintf("%s_%s_idx", t.Name, f.Name)
-		s := fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s (%s)", indexName, t.Name, f.Name)
-		_, err = t.db.Exec(s)
+		err = t.db.WithWrite(func(c *sqlite.Conn) error {
+			s := fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s (%s)", indexName, t.Name, f.Name)
+			return sqlitex.Execute(c, s, nil)
+		})
 		if err != nil {
 			return
 		}
@@ -107,6 +108,21 @@ func (t *Table) createIndexes() (err error) {
 }
 
 func (t *Table) Row(stmtName string, getSql func() string, bindargs []any, args ...any) (ok bool, err error) {
+	t.db.WithWrite(func(c *sqlite.Conn) error {
+		stmt, err := c.Prepare(getSql())
+		if err != nil {
+			return err
+		}
+		defer stmt.Finalize()
+
+		ok, err = stmt.Step()
+		if err != nil || !ok {
+			return err
+		}
+
+		return nil
+	})
+
 	stmt, err := t.stmtStore.GetOrCreate(t.db, stmtName, getSql)
 	if err != nil {
 		return
